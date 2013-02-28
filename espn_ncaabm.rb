@@ -1,68 +1,77 @@
-require 'rubygems'
+# require 'rubygems'
  
-require 'nokogiri'
-require 'open-uri'
-require 'active_record'
-require 'active_support'
-game_id = 330550194
-page = Nokogiri::HTML(open("http://espn.go.com/ncb/boxscore?id=#{game_id}"))
-headers = page.css("div#my-players-table .colhead th")
-player_rows = page.css("div#my-players-table td")
-box_score = []
-#headers.collect {|head| head.text}.map! { |x| x == "STARTERS" ? "PLAYER" : x }.slice!(0..12) 
-#player_rows.collect {|player| player.text}   
-#box_score = headers.collect {|head| head.text.downcase}.map! { |w| w == "starters" ? "player" : w}.map! { |x| x == "fgm-a" ? "fg" : x}.map! {|y| y == "3pm-a" ? "threep" : y}.map! {|z| z == "ftm-a" ? "ft" : z }.slice!(0..12).zip(player_rows.collect {|player| player.text} )
-headers = headers.collect {|head| head.text}.map! { |w| w == "starters" ? "player" : w}.map! { |x| x == "fgm-a" ? "fg" : x}.map! {|y| y == "3pm-a" ? "threep" : y}.map! {|z| z == "ftm-a" ? "ft" : z }
-player_rows = player_rows.collect {|player| player.text}
-def combine(header,rows)
-  #join each row to its header
-  joint = []
-  for j in 1..15 do
-    for i in 0..12 do 
-      joint << header[i]+":"+rows[i*j]
+# require 'nokogiri'
+# require 'open-uri'
+# require 'active_record'
+# require 'active_support'
+# game_id = 330550194
+# page = Nokogiri::HTML(open("http://espn.go.com/ncb/boxscore?id=#{game_id}"))
+# headers = page.css("div#my-players-table .colhead th")
+# player_rows = page.css("div#my-players-table td")
+# box_score = []
+# #headers.collect {|head| head.text}.map! { |x| x == "STARTERS" ? "PLAYER" : x }.slice!(0..12) 
+# #player_rows.collect {|player| player.text}   
+# #box_score = headers.collect {|head| head.text.downcase}.map! { |w| w == "starters" ? "player" : w}.map! { |x| x == "fgm-a" ? "fg" : x}.map! {|y| y == "3pm-a" ? "threep" : y}.map! {|z| z == "ftm-a" ? "ft" : z }.slice!(0..12).zip(player_rows.collect {|player| player.text} )
+# headers = headers.collect {|head| head.text}.map!
+#           { |w| w == "starters" ? "player" : w}.map!
+#           { |x| x == "fgm-a" ? "fg" : x}.map!
+#           { |y| y == "3pm-a" ? "threep" : y}.map!
+#           { |z| z == "ftm-a" ? "ft" : z }
+# player_rows = player_rows.collect {|player| player.text}
+# def combine(header,rows)
+#   #join each row to its header
+#   joint = []
+#   for j in 1..15 do
+#     for i in 0..12 do 
+#       joint << header[i]+":"+rows[i*j]
   
-    end
-  puts joint
-  end
-end
+#     end
+#   puts joint
+#   end
+# end
 
-class NcaaGameStats
-    attr_accessor :player, :min, :fg, :threep, :ft, :oreb, :reb, :ast, :stl, :blk, :to, :pf, :pts
-  def initialize (player="", min="", fg="", threep="", ft="", oreb="", reb="", ast="", stl="", blk="", to="", pf="", pts="")
-    @player = player
-    @min = min
-    @fg = fg
-    @threep = threep
-    @ft = ft
-    @oreb = oreb
-    @reb = reb
-    @ast = ast
-    @stl = stl
-    @blk = blk
-    @to = to
-    @pf = pf
-    @pts = pts
-  end
+# class NcaaGameStats
+#     attr_accessor :player, :min, :fg, :threep, :ft, :oreb, :reb, :ast, :stl, :blk, :to, :pf, :pts
+#   def initialize (player="", min="", fg="", threep="", ft="", oreb="", reb="", ast="", stl="", blk="", to="", pf="", pts="")
+#     @player = player
+#     @min = min
+#     @fg = fg
+#     @threep = threep
+#     @ft = ft
+#     @oreb = oreb
+#     @reb = reb
+#     @ast = ast
+#     @stl = stl
+#     @blk = blk
+#     @to = to
+#     @pf = pf
+#     @pts = pts
+#   end
  
-end
+# end
 
 #-------------------Create DB
-db = SQLite3::Database.new("students.db")
+db = SQLite3::Database.new("ncaamb.db")
 rows = db.execute <<-SQL
-  CREATE TABLE IF NOT EXISTS students (
+  CREATE TABLE IF NOT EXISTS gameid_#{number} (
     id INTEGER PRIMARY KEY autoincrement,
-    name text,
-    tagline text,
-    bio text,
-    aspirations text,
-    interests text,
-    social_links text,
-    prevwork text,
-    education text,
-    codercred text,
-    fave_apps text,
-    companies text,
-    quotes text
+    title text,
+    start text,
+    home_team text,
+    away_team text,
+    player text,
+    min INTEGER,
+    fg text,
+    threep text,
+    ft text,
+    oreb INTEGER,
+    reb INTEGER,
+    ast INTEGER,
+    stl INTEGER,
+    blk INTEGER,
+    to INTEGER,
+    pf INTEGER,
+    pts INTEGER
   );
 SQL
 #-------------- Game Class
@@ -110,7 +119,12 @@ class Game
   
   def scrape_stat_headers
     headers = statsdoc.css("div#my-players-table .colhead th")
-    headers = headers.collect {|head| head.text.downcase}.map! { |w| w == "starters" ? "player" : w}.map! { |x| x == "fgm-a" ? "fg" : x}.map! {|y| y == "3pm-a" ? "threep" : y}.map! {|z| z == "ftm-a" ? "ft" : z }
+    headers = headers.collect {|head| head.text.downcase}
+      .map!{ |w| w == "starters" ? "player" : w}
+      .map!{ |x| x == "fgm-a" ? "fg" : x}
+      .map!{ |y| y == "3pm-a" ? "threep" : y}
+      .map!{ |z| z == "ftm-a" ? "ft" : z }
+
     headers.slice!(headers.index("bench")..headers.length)
     self.headers = headers
   end
@@ -121,7 +135,7 @@ class Game
     self.players_rows = players_rows
   end
 
-  def combine_headers_players
+  def add_headers_players
     self.players_stats = []
     i = 0
     j= i*13
@@ -135,13 +149,14 @@ end
 test = Game.new(330550194)
 test.scrape_stat_headers
 test.scrape_players_rows
-test.combine_headers_players
+test.add_headers_players
+test.players_stats
 #   def save
 #     @@db.execute(
-#         "INSERT INTO students (name, tagline, bio, aspirations, interests, social_links, prevwork, education, codercred, fave_apps, companies, quotes)
-#         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-#         [name, tagline, bio, aspirations, interests, social_links, prevwork, education, codercred, fave_apps, companies, quotes]);
+#         "INSERT INTO ? (title, start, home_team, away_team, player, min, fg, threep, ft, oreb, reb, ast, stl, blk, to, pf, pts)
+#         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+#         [game_id, title, start, home_team, away_team, player, min, fg, threep, ft, oreb, reb, ast, stl, blk, to, pf, pts]);
 #   end
 
 # end
-#fulltable = headers.zip(player_rows)
+
